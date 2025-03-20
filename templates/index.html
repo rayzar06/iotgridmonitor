@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Energy Meter Readings</title>
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            margin: 0;
+            padding: 0;
+            color: #2c3e50; /* Dark blue-gray text */
+        }
+
+        h1 {
+            text-align: center;
+            color: #34495e; /* Dark blue-gray */
+            margin-top: 20px;
+            font-size: 2.5em;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .toggle-button {
+            padding: 10px 20px;
+            background-color: #3498db; /* Blue */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .toggle-button:hover {
+            background-color: #2980b9; /* Darker blue */
+        }
+
+        .charts-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            gap: 20px; /* Space between graphs */
+            margin: 10px auto;
+            display: none; /* Hide charts by default */
+        }
+
+        .charts-container.active {
+            display: flex; /* Show charts when active */
+        }
+
+        .chart-container {
+            flex: 1; /* Each chart takes equal space */
+            background: #ffffff; /* White background */
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        .live-scoreboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: #34495e; /* Dark blue-gray */
+            border-radius: 10px;
+            color: white;
+            width: 80%;
+            margin: 20px auto;
+        }
+
+        .live-scoreboard h3 {
+            margin: 0;
+            font-size: 1.5em;
+            color: #3498db; /* Blue */
+        }
+
+        .live-scoreboard .reading {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 10px;
+            background: #2c3e50; /* Darker blue-gray */
+            border-radius: 5px;
+            font-size: 1.2em;
+        }
+
+        .live-scoreboard .reading span {
+            font-weight: bold;
+            color: #e74c3c; /* Red */
+        }
+
+        .live-scoreboard .timestamp {
+            font-size: 0.9em;
+            color: #bdc3c7; /* Light gray */
+        }
+
+        .historical-data {
+            background: #ffffff; /* White */
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 80%;
+            margin: 20px auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #3498db; /* Blue */
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1; /* Light gray */
+        }
+
+        /* Highlight Animation */
+        @keyframes highlight {
+            from { background-color: #e74c3c; } /* Red */
+            to { background-color: #2c3e50; } /* Dark blue-gray */
+        }
+
+        .live-scoreboard .reading.highlight {
+            animation: highlight 1s ease-in-out;
+        }
+
+        .flash-messages {
+            width: 80%;
+            margin: 20px auto;
+        }
+
+        .flash-danger {
+            background-color: #e74c3c; /* Red */
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .flash-success {
+            background-color: #2ecc71; /* Green */
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* Notification Styles */
+        #notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px;
+            background-color: #e74c3c; /* Red */
+            color: white;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .notification-hidden {
+            display: none;
+        }
+
+        #notification button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .charts-container {
+                flex-direction: column; /* Stack charts vertically on small screens */
+            }
+
+            .chart-container {
+                width: 100%; /* Full width for stacked charts */
+            }
+        }
+    </style>
+    <!-- Include Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Energy Meter Readings</h1>
+    <div class="container">
+        <!-- Notification Section -->
+        <div id="notification" class="notification-hidden">
+            <span id="notification-message"></span>
+            <button onclick="hideNotification()">×</button>
+        </div>
+
+        <!-- Live Data Scoreboard -->
+        <div class="live-scoreboard" id="liveScoreboard">
+            <!-- Most recent reading will appear here -->
+        </div>
+
+        <!-- Single Button to Toggle Graphs -->
+        <button class="toggle-button" id="toggleGraphsButton">Show Graphs</button>
+
+        <!-- Charts Container -->
+        <div class="charts-container" id="chartsContainer">
+            <div class="chart-container">
+                <canvas id="energyChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="voltageChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="currentChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Historical Data Table -->
+        <div class="historical-data">
+            <h2>Historical Data (Last 10 Entries)</h2>
+            <table id="historicalTable">
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Energy (kWh)</th>
+                    <th>Voltage (V)</th>
+                    <th>Current (A)</th>
+                </tr>
+                <!-- Historical data rows will be inserted here -->
+            </table>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script>
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBO43AqQT7XxzEWv0s2NTjzqJsd-oThsm4",
+            authDomain: "smart-energy-meter-9469c.firebaseapp.com",
+            databaseURL: "https://smart-energy-meter-9469c-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "smart-energy-meter-9469c",
+            storageBucket: "smart-energy-meter-9469c.firebasestorage.app",
+            messagingSenderId: "1063258574764",
+            appId: "1:1063258574764:web:15dbd2dc9d5ad54a76f409"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        // Reference to the readings path
+        const ref = firebase.database().ref('UsersData/f85kQS2SPNa635nGzPqV7w709Bs1/readings');
+
+        // Fetch historical data
+        ref.once('value', (snapshot) => {
+            const data = snapshot.val();
+            const timestamps = [];
+            const energyData = [];
+            const voltageData = [];
+            const currentData = [];
+
+            // Process data
+            const readings = [];
+            for (const key in data) {
+                readings.push({
+                    timestamp: data[key].timestamp,
+                    energy: data[key].energy,
+                    voltage: data[key].voltage,
+                    current: data[key].current
+                });
+            }
+
+            // Sort readings by timestamp (newest first)
+            readings.sort((a, b) => b.timestamp - a.timestamp);
+
+            // Get the 10 most recent entries
+            const recentReadings = readings.slice(0, 10);
+
+            // Populate historical data table
+            const historicalTable = document.getElementById('historicalTable');
+            recentReadings.forEach(reading => {
+                const row = historicalTable.insertRow(-1);
+                row.innerHTML = `
+                    <td>${new Date(reading.timestamp * 1000).toLocaleString()}</td>
+                    <td>${reading.energy}</td>
+                    <td>${reading.voltage}</td>
+                    <td>${reading.current}</td>
+                `;
+            });
+
+            // Prepare data for charts
+            recentReadings.reverse(); // Reverse to show oldest first in charts
+            recentReadings.forEach(reading => {
+                timestamps.push(reading.timestamp);
+                energyData.push(reading.energy);
+                voltageData.push(reading.voltage);
+                currentData.push(reading.current);
+            });
+
+            // Create charts with distinct colors
+            createChart('energyChart', 'Energy (kWh)', timestamps, energyData, '#e74c3c'); /* Red */
+            createChart('voltageChart', 'Voltage (V)', timestamps, voltageData, '#3498db'); /* Blue */
+            createChart('currentChart', 'Current (A)', timestamps, currentData, '#2ecc71'); /* Green */
+        });
+
+        // Function to create a chart
+        function createChart(canvasId, label, timestamps, data, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps.map(timestamp => new Date(timestamp * 1000).toLocaleString()),
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: `${color}20`, /* Add transparency */
+                        borderWidth: 2,
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, /* Allow charts to be smaller */
+                    scales: {
+                        x: {
+                            display: false, /* Hide x-axis values */
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: label
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Toggle all graphs visibility
+        const toggleButton = document.getElementById('toggleGraphsButton');
+        const chartsContainer = document.getElementById('chartsContainer');
+
+        toggleButton.addEventListener('click', () => {
+            chartsContainer.classList.toggle('active');
+
+            // Update button text
+            if (chartsContainer.classList.contains('active')) {
+                toggleButton.textContent = 'Hide Graphs';
+            } else {
+                toggleButton.textContent = 'Show Graphs';
+            }
+        });
+
+        // Listen for new data (live data)
+        ref.on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            const scoreboard = document.getElementById('liveScoreboard');
+
+            // Normalize the timestamp
+            const normalTime = new Date(data.timestamp * 1000).toLocaleString();
+
+            // Update the live scoreboard with the most recent reading
+            scoreboard.innerHTML = `
+                <div class="reading highlight">
+                    <div>
+                        <h3>Energy</h3>
+                        <span>${data.energy} kWh</span>
+                    </div>
+                    <div>
+                        <h3>Voltage</h3>
+                        <span>${data.voltage} V</span>
+                    </div>
+                    <div>
+                        <h3>Current</h3>
+                        <span>${data.current} A</span>
+                    </div>
+                    <div class="timestamp">${normalTime}</div>
+                </div>
+            `;
+
+            // Remove highlight class after animation
+            setTimeout(() => {
+                const readingElement = scoreboard.querySelector('.reading');
+                if (readingElement) {
+                    readingElement.classList.remove('highlight');
+                }
+            }, 1000);
+
+            // Check for overload
+            const current = parseFloat(data.current);
+            const thresholdCurrent = 5; // Overload threshold in Amperes
+            const safetyMargin = 0;     // Safety margin
+
+            if (current > (thresholdCurrent + safetyMargin)) {
+                const notification = document.getElementById('notification');
+                const notificationMessage = document.getElementById('notification-message');
+
+                // Show notification
+                notificationMessage.textContent = `Overload detected!`;
+                notification.classList.remove('notification-hidden');
+
+                // Hide notification after 5 seconds
+                setTimeout(() => {
+                    notification.classList.add('notification-hidden');
+                }, 5000);
+            }
+        });
+
+        // Function to hide notification manually
+        function hideNotification() {
+            const notification = document.getElementById('notification');
+            notification.classList.add('notification-hidden');
+        }
+    </script>
+</body>
+</html>
